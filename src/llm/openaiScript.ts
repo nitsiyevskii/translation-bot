@@ -26,22 +26,20 @@ export class OpenAiScriptGenerator {
       : "";
 
     return `
-You generate a TTS-ready script for ${sourceLangName} -> ${targetLangName} vocabulary flashcards.
+Generate ${itemsPerTrack} vocabulary words for ${sourceLangName} -> ${targetLangName} flashcards.
 
-Return PLAIN TEXT ONLY using exactly this structure repeated ${itemsPerTrack} times:
+Format each entry exactly like this:
+<SOURCE>word</SOURCE>
+<TARGET>translation</TARGET>
 
-<SOURCE>single word in ${sourceLangName}</SOURCE>
-<TARGET>translation in ${targetLangName}</TARGET>
-
-Rules:
-- Language level: ${level}
-- Only single words, NO phrases or sentences
-- Verbs must be in infinitive form
-- Nouns in singular form
-- Adjectives in base form (masculine singular where applicable)
-- Mix nouns, verbs, and adjectives
-- Avoid slang
-- Do not include numbering, headings, explanations, or extra text
+STRICT RULES:
+- ONLY ONE WORD per entry - never two or more words
+- NO phrases like "to be", "por favor", "buenos días" - these are FORBIDDEN
+- Verbs: infinitive only (e.g. "comer" not "to eat", "hablar" not "to speak")
+- Nouns: singular form only
+- Adjectives: base form only
+- Level: ${level}
+- No slang, no numbering, no explanations
 ${avoidSection}
 `.trim();
   }
@@ -52,7 +50,7 @@ ${avoidSection}
     const response = await this.client.chat.completions.create({
       model: this.model,
       messages: [
-        { role: "system", content: "You are a language learning assistant. Follow the formatting rules exactly." },
+        { role: "system", content: "You are a vocabulary generator. Output ONLY single words, never phrases. Follow rules exactly." },
         { role: "user", content: prompt },
       ],
     });
