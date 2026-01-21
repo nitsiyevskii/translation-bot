@@ -24,6 +24,7 @@ const handlers = createHandlers({
 const bot = createTelegramBot({
   botToken: config.botToken,
   handlers,
+  allowedUsers: config.allowedUsers,
 });
 
 bot.launch();

@@ -24,6 +24,7 @@ export type AppConfig = {
   recentAvoidListSize: number;
   sourceLanguage: LanguageConfig;
   targetLanguage: LanguageConfig;
+  allowedUsers: number[];
 };
 
 export const config: AppConfig = {
@@ -49,4 +50,7 @@ export const config: AppConfig = {
     name: process.env.TARGET_LANG_NAME?.trim() || "Russian",
     voiceName: process.env.TARGET_VOICE?.trim() || "ru-RU-Wavenet-D",
   },
+  allowedUsers: process.env.ALLOWED_USERS
+    ? process.env.ALLOWED_USERS.split(",").map(id => Number(id.trim())).filter(id => !isNaN(id))
+    : [],
 };
