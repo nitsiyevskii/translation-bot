@@ -1,11 +1,21 @@
 import { config } from "./config.js";
 import { RecentStore } from "./state/recentStore.js";
+import { SettingsStore } from "./state/settingsStore.js";
 import { OpenAiScriptGenerator } from "./llm/openaiScript.js";
 import { GoogleTts } from "./tts/googleTts.js";
 import { createHandlers } from "./bot/handlers.js";
 import { createTelegramBot } from "./bot/telegramBot.js";
 
 const store = new RecentStore({ maxRecent: config.maxRecent });
+
+const settings = new SettingsStore(
+  {
+    pauseThink: config.pauseThink,
+    pauseBetween: config.pauseBetween,
+    itemsPerTrack: config.itemsPerTrack,
+  },
+  config.limits
+);
 
 const scriptGenerator = new OpenAiScriptGenerator({
   apiKey: config.openaiApiKey,
@@ -17,6 +27,7 @@ const tts = new GoogleTts();
 const handlers = createHandlers({
   config,
   store,
+  settings,
   scriptGen: scriptGenerator,
   tts,
 });

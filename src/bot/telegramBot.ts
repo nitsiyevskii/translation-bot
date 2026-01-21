@@ -22,6 +22,7 @@ export function createTelegramBot(opts: {
 
   bot.start(opts.handlers.onStart);
   bot.on("text", opts.handlers.onText);
+  bot.on("callback_query", opts.handlers.onCallback);
 
   return bot;
 }

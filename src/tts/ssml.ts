@@ -10,8 +10,8 @@ function escapeXml(text: string): string {
 }
 
 export type SsmlOptions = {
-  pauseThink: string;
-  pauseBetween: string;
+  pauseThink: number;
+  pauseBetween: number;
   sourceVoice: string;
   targetVoice: string;
 };
@@ -21,9 +21,9 @@ export function buildSsml(pairs: Pair[], opts: SsmlOptions): string {
 
   for (const { source, target } of pairs) {
     parts.push(`<voice name="${opts.sourceVoice}">${escapeXml(source)}</voice>`);
-    parts.push(`<break time="${opts.pauseThink}"/>`);
+    parts.push(`<break time="${opts.pauseThink}s"/>`);
     parts.push(`<voice name="${opts.targetVoice}">${escapeXml(target)}</voice>`);
-    parts.push(`<break time="${opts.pauseBetween}"/>`);
+    parts.push(`<break time="${opts.pauseBetween}s"/>`);
   }
 
   parts.push("</speak>");

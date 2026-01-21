@@ -6,10 +6,24 @@ function requireEnv(name: string): string {
   return v.trim();
 }
 
+function parseSeconds(value: string): number {
+  const match = value.match(/^([\d.]+)s?$/);
+  return match ? parseFloat(match[1]) : 2;
+}
+
 export type LanguageConfig = {
   code: string;
   name: string;
   voiceName: string;
+};
+
+export type SettingsLimits = {
+  pauseThinkMin: number;
+  pauseThinkMax: number;
+  pauseBetweenMin: number;
+  pauseBetweenMax: number;
+  itemsMin: number;
+  itemsMax: number;
 };
 
 export type AppConfig = {
@@ -18,13 +32,14 @@ export type AppConfig = {
   openaiModel: string;
   itemsPerTrack: number;
   level: string;
-  pauseThink: string;
-  pauseBetween: string;
+  pauseThink: number;
+  pauseBetween: number;
   maxRecent: number;
   recentAvoidListSize: number;
   sourceLanguage: LanguageConfig;
   targetLanguage: LanguageConfig;
   allowedUsers: number[];
+  limits: SettingsLimits;
 };
 
 export const config: AppConfig = {
@@ -34,8 +49,8 @@ export const config: AppConfig = {
 
   itemsPerTrack: Number(process.env.ITEMS_PER_TRACK || 20),
   level: process.env.LANGUAGE_LEVEL?.trim() || "A2–B1",
-  pauseThink: process.env.PAUSE_THINK?.trim() || "2s",
-  pauseBetween: process.env.PAUSE_BETWEEN?.trim() || "1.5s",
+  pauseThink: parseSeconds(process.env.PAUSE_THINK?.trim() || "2s"),
+  pauseBetween: parseSeconds(process.env.PAUSE_BETWEEN?.trim() || "3s"),
 
   maxRecent: Number(process.env.MAX_RECENT_WORDS || 200),
   recentAvoidListSize: Number(process.env.RECENT_AVOID_LIST_SIZE || 120),
@@ -53,4 +68,12 @@ export const config: AppConfig = {
   allowedUsers: process.env.ALLOWED_USERS
     ? process.env.ALLOWED_USERS.split(",").map(id => Number(id.trim())).filter(id => !isNaN(id))
     : [],
+  limits: {
+    pauseThinkMin: 1,
+    pauseThinkMax: 10,
+    pauseBetweenMin: 1,
+    pauseBetweenMax: 10,
+    itemsMin: 5,
+    itemsMax: 30,
+  },
 };
