@@ -1,0 +1,15 @@
+.env
+/node_modules
+/dist
+/tmp
+/logs
+/data
+/config
+/backup
+/backups
+/backups.zip
+/backups.tar.gz
+/backups.tar.bz2
+/backups.tar.xz
+/backups.tar.lzma
+/backups.tar.lzma
