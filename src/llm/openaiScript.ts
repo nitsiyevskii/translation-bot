@@ -26,16 +26,20 @@ export class OpenAiScriptGenerator {
       : "";
 
     return `
-You generate a TTS-ready script for ${sourceLangName} -> ${targetLangName} flashcards.
+You generate a TTS-ready script for ${sourceLangName} -> ${targetLangName} vocabulary flashcards.
 
 Return PLAIN TEXT ONLY using exactly this structure repeated ${itemsPerTrack} times:
 
-<SOURCE>word or phrase in ${sourceLangName}</SOURCE>
+<SOURCE>single word in ${sourceLangName}</SOURCE>
 <TARGET>translation in ${targetLangName}</TARGET>
 
 Rules:
 - Language level: ${level}
-- Mix nouns, verbs, adjectives, and common phrases
+- Only single words, NO phrases or sentences
+- Verbs must be in infinitive form
+- Nouns in singular form
+- Adjectives in base form (masculine singular where applicable)
+- Mix nouns, verbs, and adjectives
 - Avoid slang
 - Do not include numbering, headings, explanations, or extra text
 ${avoidSection}
