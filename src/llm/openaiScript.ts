@@ -37,7 +37,7 @@ Rules:
 - Language level: ${level}
 - Only single words, NO phrases or sentences
 - Verbs must be in infinitive form
-- Nouns in singular form
+- Nouns in singular form with article (e.g. "el coche", "la casa")
 - Adjectives in base form (masculine singular where applicable)
 - Mix nouns, verbs, and adjectives
 - Avoid slang
