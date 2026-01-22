@@ -3,12 +3,9 @@ import type { Context, NarrowedContext } from "telegraf";
 import { Markup } from "telegraf";
 import type { Message, Update } from "telegraf/types";
 import type { AppConfig } from "../config.js";
-import type { RecentStore } from "../state/recentStore.js";
 import type { SettingsStore } from "../state/settingsStore.js";
-import type { OpenAiScriptGenerator } from "../llm/openaiScript.js";
-import type { GoogleTts } from "../tts/googleTts.js";
-import { buildSsml } from "../tts/ssml.js";
-import { mp3BufferToOggOpusFile } from "../tts/audioConvert.js";
+import type { DatabaseService } from "../db/database.js";
+import type { AudioTrack } from "../db/types.js";
 
 type TextContext = NarrowedContext<Context<Update>, Update.MessageUpdate<Message.TextMessage>>;
 
@@ -21,40 +18,64 @@ export type Handlers = {
 function buildSettingsKeyboard() {
   return Markup.inlineKeyboard([
     [
-      Markup.button.callback("⏱ Think −1s", "think_dec"),
-      Markup.button.callback("⏱ Think +1s", "think_inc"),
+      Markup.button.callback("\u23f1 Think \u22121s", "think_dec"),
+      Markup.button.callback("\u23f1 Think +1s", "think_inc"),
     ],
     [
-      Markup.button.callback("⏸ Between −1s", "between_dec"),
-      Markup.button.callback("⏸ Between +1s", "between_inc"),
+      Markup.button.callback("\u23f8 Between \u22121s", "between_dec"),
+      Markup.button.callback("\u23f8 Between +1s", "between_inc"),
     ],
     [
-      Markup.button.callback("📝 Words −5", "items_dec"),
-      Markup.button.callback("📝 Words +5", "items_inc"),
+      Markup.button.callback("\ud83d\udcdd Words \u22125", "items_dec"),
+      Markup.button.callback("\ud83d\udcdd Words +5", "items_inc"),
+    ],
+  ]);
+}
+
+function buildFeedbackKeyboard(trackId: number) {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback("\ud83d\udc4d", `like_${trackId}`),
+      Markup.button.callback("\ud83d\udc4e", `dislike_${trackId}`),
     ],
   ]);
 }
 
 export function createHandlers(opts: {
   config: AppConfig;
-  store: RecentStore;
   settings: SettingsStore;
-  scriptGen: OpenAiScriptGenerator;
-  tts: GoogleTts;
+  db: DatabaseService;
 }): Handlers {
-  const { config, store, settings, scriptGen, tts } = opts;
-
+  const { config, settings, db } = opts;
   const { sourceLanguage, targetLanguage } = config;
 
   function formatSettings(chatId: number): string {
     const s = settings.get(chatId);
-    return `Current settings:\n• Think pause: ${s.pauseThink}s\n• Between pause: ${s.pauseBetween}s\n• Words per track: ${s.itemsPerTrack}`;
+    return `Current settings:\n\u2022 Think pause: ${s.pauseThink}s\n\u2022 Between pause: ${s.pauseBetween}s\n\u2022 Words per track: ${s.itemsPerTrack}`;
+  }
+
+  function getNextTrackForUser(chatId: number): AudioTrack | null {
+    let track = db.getNextUnlistenedTrack(chatId);
+
+    if (!track) {
+      db.clearUserHistory(chatId);
+      track = db.getOldestListenedTrack(chatId);
+      if (!track) {
+        const allTracks = db.getAllTracks();
+        if (allTracks.length > 0) {
+          track = allTracks[0];
+        }
+      }
+    }
+
+    return track;
   }
 
   return {
     async onStart(ctx) {
       const chatId = ctx.chat.id;
-      const message = `${sourceLanguage.name} → ${targetLanguage.name} audio flashcards.\n\nSend "go" to generate a track.\n\n${formatSettings(chatId)}`;
+      const trackCount = db.getTrackCount();
+      const message = `${sourceLanguage.name} \u2192 ${targetLanguage.name} audio flashcards.\n\nSend "go" to get next track.\nLibrary: ${trackCount} tracks available.\n\n${formatSettings(chatId)}`;
       await ctx.reply(message, buildSettingsKeyboard());
     },
 
@@ -63,43 +84,28 @@ export function createHandlers(opts: {
       if (text !== "go") return;
 
       const chatId = ctx.chat.id;
-      const chatSettings = settings.get(chatId);
+      const track = getNextTrackForUser(chatId);
 
-      await ctx.reply("Generating audio track...");
+      if (!track) {
+        await ctx.reply("No audio tracks available yet. Please wait for the library to be generated.");
+        return;
+      }
+
+      if (!fs.existsSync(track.filePath)) {
+        db.deleteTrack(track.id);
+        await ctx.reply("Track file missing. Please try again.");
+        return;
+      }
 
       try {
-        const recentAvoidList = store.getRecent(chatId, config.recentAvoidListSize);
-
-        const { pairs } = await scriptGen.generate({
-          itemsPerTrack: chatSettings.itemsPerTrack,
-          level: config.level,
-          recentAvoidList,
-          sourceLangName: sourceLanguage.name,
-          targetLangName: targetLanguage.name,
-        });
-
-        store.addMany(chatId, pairs.map(p => p.source));
-
-        const ssml = buildSsml(pairs, {
-          pauseThink: chatSettings.pauseThink,
-          pauseBetween: chatSettings.pauseBetween,
-          sourceVoice: sourceLanguage.voiceName,
-          targetVoice: targetLanguage.voiceName,
-        });
-
-        const mp3Buffer = await tts.synthesizeMp3FromSsml(ssml);
-        const oggPath = mp3BufferToOggOpusFile(mp3Buffer);
-
-        try {
-          await ctx.replyWithVoice({ source: oggPath });
-        } finally {
-          if (fs.existsSync(oggPath)) {
-            fs.unlinkSync(oggPath);
-          }
-        }
+        await ctx.replyWithVoice(
+          { source: track.filePath },
+          buildFeedbackKeyboard(track.id)
+        );
+        db.markListened(chatId, track.id);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        console.error("Failed to generate audio:", errorMessage);
+        console.error("Failed to send audio:", errorMessage);
         await ctx.reply("Sorry, something went wrong. Please try again.");
       }
     },
@@ -112,6 +118,21 @@ export function createHandlers(opts: {
       if (!chatId) return;
 
       const action = callbackQuery.data;
+
+      if (action.startsWith("like_")) {
+        const trackId = parseInt(action.replace("like_", ""), 10);
+        db.setFeedback(chatId, trackId, 1);
+        await ctx.answerCbQuery("\ud83d\udc4d Thanks for the feedback!");
+        return;
+      }
+
+      if (action.startsWith("dislike_")) {
+        const trackId = parseInt(action.replace("dislike_", ""), 10);
+        db.setFeedback(chatId, trackId, -1);
+        await ctx.answerCbQuery("\ud83d\udc4e Thanks for the feedback!");
+        return;
+      }
+
       let newValue: number;
       let label: string;
 
@@ -147,7 +168,7 @@ export function createHandlers(opts: {
 
       await ctx.answerCbQuery(label);
 
-      const messageText = `${sourceLanguage.name} → ${targetLanguage.name} audio flashcards.\n\nSend "go" to generate a track.\n\n${formatSettings(chatId)}`;
+      const messageText = `${sourceLanguage.name} \u2192 ${targetLanguage.name} audio flashcards.\n\nSend "go" to get next track.\n\n${formatSettings(chatId)}`;
       await ctx.editMessageText(messageText, buildSettingsKeyboard());
     },
   };

@@ -26,6 +26,14 @@ export type SettingsLimits = {
   itemsMax: number;
 };
 
+export type LibraryConfig = {
+  dbPath: string;
+  audioDir: string;
+  targetSize: number;
+  lowScoreThreshold: number;
+  maintenanceIntervalMs: number;
+};
+
 export type AppConfig = {
   botToken: string;
   openaiApiKey: string;
@@ -40,6 +48,7 @@ export type AppConfig = {
   targetLanguage: LanguageConfig;
   allowedUsers: number[];
   limits: SettingsLimits;
+  library: LibraryConfig;
 };
 
 export const config: AppConfig = {
@@ -75,5 +84,12 @@ export const config: AppConfig = {
     pauseBetweenMax: 10,
     itemsMin: 5,
     itemsMax: 30,
+  },
+  library: {
+    dbPath: process.env.DB_PATH?.trim() || "./data/db.sqlite",
+    audioDir: process.env.AUDIO_DIR?.trim() || "./data/audio",
+    targetSize: Number(process.env.LIBRARY_SIZE || 20),
+    lowScoreThreshold: Number(process.env.LOW_SCORE_THRESHOLD || -5),
+    maintenanceIntervalMs: Number(process.env.MAINTENANCE_INTERVAL_HOURS || 24) * 60 * 60 * 1000,
   },
 };
